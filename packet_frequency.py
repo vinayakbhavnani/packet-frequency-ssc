@@ -52,6 +52,8 @@ def parseXml(packet):
                 root = doc.documentElement
                 return "element", root
             except xml.parsers.expat.ExpatError:
+                if packet == "</stream:stream>":
+                    return "streamclose",None
                 return "none", None
 
 
@@ -157,6 +159,7 @@ def initMap():
     loadmap['session'] = 0
     loadmap['IqwithoutchildTypeResult'] = 0
     loadmap['nopacket'] = 0
+    loadmap['streamclose'] = 0
     return loadmap
 
 
@@ -198,6 +201,9 @@ def parseAndUpdate():
                     processPacket(responseElem)
                 elif responseType == "elementlist":
                     processPacketList(responseElem)
+                elif responseType == "streamclose":
+                    freqMap['streamclose'] +=1
+                    updateFrequency(displayMap,screen,'streamclose')
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
