@@ -189,8 +189,11 @@ def fetchInputAndValidate():
         sys.exit(0)
 
 def parseAndUpdate():
-    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag
+    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition
+    fileposition = readFilePosition()
+    inputfile.seek(fileposition)
     while quitFlag:
+        fileposition = inputfile.tell()
         line = inputfile.readline()
         if not line:
             time.sleep(float(refreshRate))
@@ -224,7 +227,14 @@ def parseAndUpdate():
                     logfile.write(xmlStanza + "\n")
                     freqMap['IncompleteStanza'] += 1
                     updateFrequency(displayMap, screen, 'IncompleteStanza')
+    posfile.write(str(fileposition))
 
+def readFilePosition():
+    line = posfile.readline()
+    if not line:
+        return 0
+    else:
+        return int(line)
 
 def receiveUserInput():
     global quitFlag
@@ -243,6 +253,7 @@ refreshRate = inp[1]
 inputfile = open(inpfile, 'r')
 logfile = open("invalidXmlLog", 'w')
 iqfile = open("undetectedIQ", 'w')
+posfile = open("pos",'r+')
 freqMap = initMap()
 response1 = tuiMap(freqMap)
 displayMap = response1[0]
