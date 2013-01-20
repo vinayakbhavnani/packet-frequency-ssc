@@ -46,15 +46,25 @@ def parseXml(packet):
             root = doc.documentElement
             return "elementlist", root.childNodes
         except xml.parsers.expat.ExpatError:
-            streamcheck = packet + "</stream:stream>"
+            openpacket = handleStreamStart(packet)
             try:
-                doc = xml.dom.minidom.parseString(streamcheck)
+                doc = xml.dom.minidom.parseString(openpacket)
                 root = doc.documentElement
                 return "element", root
             except xml.parsers.expat.ExpatError:
                 return "none", None
 
 
+def handleStreamStart(packet):
+    if packet.find('stream:stream') == 1:
+        streamStart = packet+"</stream:stream>"
+        iqfile.write(streamStart+"\n")
+        return streamStart
+    elif packet.find('<session') ==0:
+        session = packet + "</session>"
+        return session
+    else:
+        return packet
 def processPacketList(packetList):
     for packet in packetList:
         processPacket(packet)
@@ -125,6 +135,9 @@ def processPacket(root):
             updateFrequency(displayMap, screen, 'iq')
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
+    elif root.nodeName == "session":
+        freqMap['session'] += 1
+        updateFrequency(displayMap,screen,'session')
 
 
 def initMap():
