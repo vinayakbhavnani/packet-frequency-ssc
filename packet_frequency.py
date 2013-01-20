@@ -86,7 +86,7 @@ def processPacketList(packetList):
 
 def processPacket(root):
     #print root
-    if root.nodeName == "stream:stream":
+    if root.nodeName.find('stream') == 0:
         freqMap['stream'] += 1
         updateFrequency(displayMap, screen, 'stream')
     elif root.nodeName == "message":
