@@ -26,6 +26,8 @@ def printKeys(displayMap, win):
         #print keypos[1],keypos[0],key
         win.addstr(keypos[1], keypos[0], key)
         win.refresh()
+    win.addstr(20,2,'Press q to quit')
+    win.refresh()
 
 
 def updateFrequency(displayMap, screen, key):
@@ -226,9 +228,13 @@ def parseAndUpdate():
 
 def receiveUserInput():
     global quitFlag
-    screen.getch()
-    quitFlag = 0
-    curses.endwin()
+    while 1:
+        user_input = screen.getch()
+        if str(user_input) == '113':
+            quitFlag = 0
+            curses.echo()
+            curses.endwin()
+            break
 
 inp = fetchInputAndValidate()
 inpfile = inp[0]
@@ -241,6 +247,7 @@ freqMap = initMap()
 response1 = tuiMap(freqMap)
 displayMap = response1[0]
 screen = curses.initscr()
+curses.noecho()
 screen.border(0)
 #screen.addstr(10,20,"hey")
 printKeys(displayMap, screen)
