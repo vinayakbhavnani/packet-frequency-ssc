@@ -54,7 +54,19 @@ def parseXml(packet):
             except xml.parsers.expat.ExpatError:
                 if packet == "</stream:stream>":
                     return "streamclose",None
-                return "none", None
+                else:
+                    if packet.find("stream:stream") == 1:
+                        rawpacket = packet + "</stream:stream>"
+                    else:
+                        rawpacket = packet
+                    binderror = rawpacket.replace(":","")
+                    iqfile.write(binderror)
+                    try:
+                        doc = xml.dom.minidom.parseString(binderror)
+                        root = doc.documentElement
+                        return "element", root
+                    except xml.parsers.expat.ExpatError:
+                        return "none", None
 
 
 def handleStreamStart(packet):
