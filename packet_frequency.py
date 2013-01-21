@@ -13,18 +13,18 @@ import os
 def tuiMap(stanzaMap):
     tuimap = {}
     x1 = 1
-    x2 = 20
-    x3 = 30
-    x4 = 40
-    x5 = 50
+    x2 = 30
+    x3 = 40
+    x4 = 70
+    x5 = 80
     y = 2
     for key in stanzaMap:
         coordinateMap = {}
         coordinateMap['packet'] = (x1,y)
-        coordinateMap['cin'] = (x2,y)
-        coordinateMap['cout'] = (x3,y)
-        coordinateMap['din'] = (x4,y)
-        coordinateMap['dout'] = (x5,y)
+        coordinateMap['cout'] = (x2,y)
+        coordinateMap['din'] = (x3,y)
+        coordinateMap['dout'] = (x4,y)
+        coordinateMap['cin'] = (x5,y)
         tuimap[key] = coordinateMap
         y = y + 1
 
@@ -182,8 +182,9 @@ def extractPacketAndSrcDest(logstring):
     combinationMap['din'] = 'D <<'
     combinationMap['dout'] = 'D >>'
     for key in combinationMap:
-        if key in logstring:
-            packet = logstring.split(key)[1]
+        value = combinationMap[key]
+        if value in logstring:
+            packet = logstring.split(value)[1]
             packet = packet.strip()
             return key,packet
     return None,None
