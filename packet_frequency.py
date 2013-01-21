@@ -7,6 +7,7 @@ import sys
 import curses
 import thread
 import threading
+import argparse
 
 def tuiMap(stanzaMap):
     tuimap = {}
@@ -178,15 +179,13 @@ def initMap():
 
 
 def fetchInputAndValidate():
-    if len(sys.argv) > 1:
-        if len(sys.argv) == 3:
-            refreshRate = sys.argv[2]
-        else:
-            refreshRate = '0.1'
-        return sys.argv[1],refreshRate
-    else:
-        print "Please Enter the Path to the Log File as Command Line Argument"
-        sys.exit(0)
+    parse = argparse.ArgumentParser(prog='input.py')
+    parse.add_argument('executablefile')
+    parse.add_argument('logfile')
+    parse.add_argument('-r',type=float,default=1.0,help='refresh Rate',dest='refreshRate')
+    parse.add_argument('-o',default=False,help='true for resume , false for restart',dest='resume',action='store_const',const=True)
+    namespace = parse.parse_args(sys.argv)
+    return namespace
 
 def parseAndUpdate():
     global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition
