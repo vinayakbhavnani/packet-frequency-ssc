@@ -102,56 +102,55 @@ def processPacketList(packetList):
 def processPacket(root):
     #print root
     if root.nodeName.find('stream') == 0:
-        incrementAndUpdate(displayMap, screen, 'stream')
+        incrementAndUpdate(displayMap, screen, 'stream',srcdest)
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
         if root.getElementsByTagName('composing') or root.getElementsByTagName('active'):
             #print "chatState"
-            incrementAndUpdate(displayMap, screen, 'chatstates')
+            incrementAndUpdate(displayMap, screen, 'chatstates',srcdest)
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
-            incrementAndUpdate(displayMap, screen, 'readreceipts')
+            incrementAndUpdate(displayMap, screen, 'readreceipts',srcdest)
         else:
             #print "chatMessage"
-            incrementAndUpdate(displayMap, screen, 'chat')
+            incrementAndUpdate(displayMap, screen, 'chat',srcdest)
     elif root.nodeName == "presence":
         #print "presence packet"
-        screen.addstr(displayMap['presence'][1][1], displayMap['presence'][1][0], str(freqMap['presence']))
-        screen.refresh()
+        incrementAndUpdate(displayMap,screen,'presence',srcdest)
 
     elif root.nodeName == "iq":
         #print root.childNodes[0].attributes.items()
         if root.childNodes == []:
-            incrementAndUpdate(displayMap, screen, 'IqwithoutchildTypeResult')
+            incrementAndUpdate(displayMap, screen, 'IqwithoutchildTypeResult',srcdest)
         elif root.getElementsByTagName('query'):
             queryelem = root.getElementsByTagName('query')[0]
             queryxmlns = queryelem.getAttributeNode('xmlns').nodeValue
             if queryxmlns == "http://talk.to/extension#reflection":
                 #print "reflection"
-                incrementAndUpdate(displayMap, screen, 'reflection')
+                incrementAndUpdate(displayMap, screen, 'reflection',srcdest)
             elif queryxmlns == "google:shared-status":
                 #print "google shared status"
-                incrementAndUpdate(displayMap, screen, 'googlesharedstatus')
+                incrementAndUpdate(displayMap, screen, 'googlesharedstatus',srcdest)
             elif queryxmlns == "jabber:iq:roster":
-                incrementAndUpdate(displayMap, screen, 'roster')
+                incrementAndUpdate(displayMap, screen, 'roster',srcdest)
             else:
                 #print "IQwithQuery undetected"
-                incrementAndUpdate(displayMap, screen, 'iq')
+                incrementAndUpdate(displayMap, screen, 'iq',srcdest)
                 #print m.group(1)
                 #iqfile.write(m.group(1)+"\n")
         elif root.getElementsByTagName('vCard'):
-            incrementAndUpdate(displayMap, screen, 'vcard')
+            incrementAndUpdate(displayMap, screen, 'vcard',srcdest)
         elif root.getElementsByTagName('bind'):
-            incrementAndUpdate(displayMap, screen, 'bind')
+            incrementAndUpdate(displayMap, screen, 'bind',srcdest)
         elif root.getElementsByTagName('session'):
-            incrementAndUpdate(displayMap, screen, 'session')
+            incrementAndUpdate(displayMap, screen, 'session',srcdest)
         else:
             #print "IQ undected"
-            incrementAndUpdate(displayMap, screen, 'iq')
+            incrementAndUpdate(displayMap, screen, 'iq',srcdest)
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
     elif root.nodeName == "session":
-        incrementAndUpdate(displayMap,screen,'session')
+        incrementAndUpdate(displayMap,screen,'session',srcdest)
 
 
 def initMap():
@@ -177,7 +176,17 @@ def fetchInputAndValidate():
     return namespace
 
 def extractPacketAndSrcDest(logstring):
-    
+    combinationMap = {}
+    combinationMap['cin'] = 'C <<'
+    combinationMap['cout'] = 'C >>'
+    combinationMap['din'] = 'D <<'
+    combinationMap['dout'] = 'D >>'
+    for key in combinationMap:
+        if key in logstring:
+            packet = logstring.split(key)[1]
+            packet = packet.strip()
+            return key,packet
+    return None,None
 
 
 def parseAndUpdate():
@@ -190,16 +199,13 @@ def parseAndUpdate():
             time.sleep(float(refreshRate))
             continue
         else:
-            if incoming in line:
-                m = True
-                xmlStanza = line.split(incoming)[1]
-                xmlStanza = xmlStanza.strip()
-            elif outgoing in line:
-                m = True
-                xmlStanza = line.split(outgoing)[1]
-                xmlStanza = xmlStanza.strip()
-            else:
+            packetinfo = extractPacketAndSrcDest(line)
+            if packetinfo[0] == None:
                 m = False
+            else:
+                m = True
+                srcdest = packetinfo[0]
+                xmlStanza = packetinfo[1]
             totalLine += 1
             if m:
                 response = parseXml(xmlStanza)
@@ -210,14 +216,14 @@ def parseAndUpdate():
                 elif responseType == "elementlist":
                     processPacketList(responseElem)
                 elif responseType == "streamclose":
-                    incrementAndUpdate(displayMap,screen,'streamclose')
+                    incrementAndUpdate(displayMap,screen,'streamclose',srcdest)
                 elif responseType == "sessionclose":
-                    incrementAndUpdate(displayMap,screen,'sessionclose')
+                    incrementAndUpdate(displayMap,screen,'sessionclose',srcdest)
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
                     logfile.write(xmlStanza + "\n")
-                    incrementAndUpdate(displayMap, screen, 'IncompleteStanza')
+                    incrementAndUpdate(displayMap, screen, 'IncompleteStanza',srcdest)
     posfile.write(str(fileposition))
     posfile.close()
 
