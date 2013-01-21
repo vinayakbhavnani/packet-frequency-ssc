@@ -193,10 +193,10 @@ def extractPacketAndSrcDest(logstring):
 
 
 def parseAndUpdate():
-    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition , srcdest
-    inputfile.seek(fileposition)
+    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , resume , srcdest
+    if resume == True:
+        inputfile.seek(0,2)
     while quitFlag:
-        fileposition = inputfile.tell()
         line = inputfile.readline()
         if not line:
             time.sleep(float(refreshRate))
@@ -227,8 +227,6 @@ def parseAndUpdate():
                     #print m.group(1)
                     logfile.write(xmlStanza + "\n")
                     incrementAndUpdate(displayMap, screen, 'IncompleteStanza',srcdest)
-    posfile.write(str(fileposition))
-    posfile.close()
 
 
 def receiveUserInput():
@@ -241,15 +239,6 @@ def receiveUserInput():
             curses.endwin()
             break
 
-def getFilePosition(resumption):
-    if resumption == True :
-        line = posfile.readline()
-        if not line:
-            return 0
-        else:
-            return int(line)
-    else:
-        return 0
 inp = fetchInputAndValidate()
 inpfile = inp.logfile
 refreshRate = inp.refreshRate
@@ -258,11 +247,6 @@ resume = inp.resume
 inputfile = open(inpfile, 'r')
 logfile = open("invalidXmlLog", 'w')
 iqfile = open("undetectedIQ", 'w')
-try:
-    posfile = open("pos",'r')
-    fileposition = getFilePosition(resume)
-except IOError :
-    fileposition = 0
 posfile = open("pos",'w')
 freqMap = initMap()
 response1 = tuiMap(freqMap)
