@@ -33,7 +33,7 @@ def tuiMap(stanzaMap):
 
 def printKeys(displayMap, win):
     for key in displayMap:
-        keypos = displayMap[key][0]
+        keypos = displayMap[key]['packet']
         #print keypos[1],keypos[0],key
         win.addstr(keypos[1], keypos[0], key)
         win.refresh()
@@ -41,8 +41,9 @@ def printKeys(displayMap, win):
     win.refresh()
 
 
-def updateFrequency(displayMap, screen, key):
-    screen.addstr(displayMap[key][1][1], displayMap[key][1][0], str(freqMap[key]))
+def incrementAndUpdate(displayMap, screen, key , sd):
+    freqMap[key][sd] += 1
+    screen.addstr(displayMap[key][sd][1], displayMap[key][sd][0], str(freqMap[key][sd]))
     screen.refresh()
 
 
@@ -101,92 +102,68 @@ def processPacketList(packetList):
 def processPacket(root):
     #print root
     if root.nodeName.find('stream') == 0:
-        freqMap['stream'] += 1
-        updateFrequency(displayMap, screen, 'stream')
+        incrementAndUpdate(displayMap, screen, 'stream')
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
         if root.getElementsByTagName('composing') or root.getElementsByTagName('active'):
             #print "chatState"
-            freqMap['chatstates'] += 1
-            updateFrequency(displayMap, screen, 'chatstates')
+            incrementAndUpdate(displayMap, screen, 'chatstates')
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
-            freqMap['readreceipts'] += 1
-            updateFrequency(displayMap, screen, 'readreceipts')
+            incrementAndUpdate(displayMap, screen, 'readreceipts')
         else:
             #print "chatMessage"
-            freqMap['chat'] += 1
-            updateFrequency(displayMap, screen, 'chat')
+            incrementAndUpdate(displayMap, screen, 'chat')
     elif root.nodeName == "presence":
         #print "presence packet"
-        freqMap['presence'] += 1
         screen.addstr(displayMap['presence'][1][1], displayMap['presence'][1][0], str(freqMap['presence']))
         screen.refresh()
 
     elif root.nodeName == "iq":
         #print root.childNodes[0].attributes.items()
         if root.childNodes == []:
-            freqMap['IqwithoutchildTypeResult'] += 1
-            updateFrequency(displayMap, screen, 'IqwithoutchildTypeResult')
+            incrementAndUpdate(displayMap, screen, 'IqwithoutchildTypeResult')
         elif root.getElementsByTagName('query'):
             queryelem = root.getElementsByTagName('query')[0]
             queryxmlns = queryelem.getAttributeNode('xmlns').nodeValue
             if queryxmlns == "http://talk.to/extension#reflection":
                 #print "reflection"
-                freqMap['reflection'] += 1
-                updateFrequency(displayMap, screen, 'reflection')
+                incrementAndUpdate(displayMap, screen, 'reflection')
             elif queryxmlns == "google:shared-status":
                 #print "google shared status"
-                freqMap['googlesharedstatus'] += 1
-                updateFrequency(displayMap, screen, 'googlesharedstatus')
+                incrementAndUpdate(displayMap, screen, 'googlesharedstatus')
             elif queryxmlns == "jabber:iq:roster":
-                freqMap['roster'] += 1
-                updateFrequency(displayMap, screen, 'roster')
+                incrementAndUpdate(displayMap, screen, 'roster')
             else:
                 #print "IQwithQuery undetected"
-                freqMap['iq'] += 1
-                updateFrequency(displayMap, screen, 'iq')
+                incrementAndUpdate(displayMap, screen, 'iq')
                 #print m.group(1)
                 #iqfile.write(m.group(1)+"\n")
         elif root.getElementsByTagName('vCard'):
-            freqMap['vcard'] += 1
-            updateFrequency(displayMap, screen, 'vcard')
+            incrementAndUpdate(displayMap, screen, 'vcard')
         elif root.getElementsByTagName('bind'):
-            freqMap['bind'] += 1
-            updateFrequency(displayMap, screen, 'bind')
+            incrementAndUpdate(displayMap, screen, 'bind')
         elif root.getElementsByTagName('session'):
-            freqMap['session'] += 1
-            updateFrequency(displayMap, screen, 'session')
+            incrementAndUpdate(displayMap, screen, 'session')
         else:
             #print "IQ undected"
-            freqMap['iq'] += 1
-            updateFrequency(displayMap, screen, 'iq')
+            incrementAndUpdate(displayMap, screen, 'iq')
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
     elif root.nodeName == "session":
-        freqMap['session'] += 1
-        updateFrequency(displayMap,screen,'session')
+        incrementAndUpdate(displayMap,screen,'session')
 
 
 def initMap():
     loadmap = {}
-    loadmap['chat'] = 0
-    loadmap['chatstates'] = 0
-    loadmap['presence'] = 0
-    loadmap['vcard'] = 0
-    loadmap['reflection'] = 0
-    loadmap['readreceipts'] = 0
-    loadmap['googlesharedstatus'] = 0
-    loadmap['stream'] = 0
-    loadmap['iq'] = 0
-    loadmap['IncompleteStanza'] = 0
-    loadmap['roster'] = 0
-    loadmap['bind'] = 0
-    loadmap['session'] = 0
-    loadmap['IqwithoutchildTypeResult'] = 0
-    loadmap['nopacket'] = 0
-    loadmap['streamclose'] = 0
-    loadmap['sessionclose'] = 0
+    stanzaList = ['sessionclose','streamclose','nopacket','IqwithoutchildTypeResult','session','bind','roster','IncompleteStanza','iq','stream','googlesharedstatus','readreceipts','chat','chatstates','presence','vcard','reflection']
+    for key in stanzaList:
+        tempMap = {}
+        tempMap['cin'] = 0
+        tempMap['cout'] = 0
+        tempMap['din'] = 0
+        tempMap['dout'] = 0
+        loadmap[key] = tempMap
     return loadmap
 
 
@@ -199,8 +176,12 @@ def fetchInputAndValidate():
     namespace = parse.parse_args(sys.argv)
     return namespace
 
+def extractPacketAndSrcDest(logstring):
+    
+
+
 def parseAndUpdate():
-    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition
+    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition , srcdest
     inputfile.seek(fileposition)
     while quitFlag:
         fileposition = inputfile.tell()
@@ -229,17 +210,14 @@ def parseAndUpdate():
                 elif responseType == "elementlist":
                     processPacketList(responseElem)
                 elif responseType == "streamclose":
-                    freqMap['streamclose'] +=1
-                    updateFrequency(displayMap,screen,'streamclose')
+                    incrementAndUpdate(displayMap,screen,'streamclose')
                 elif responseType == "sessionclose":
-                    freqMap['sessionclose'] += 1
-                    updateFrequency(displayMap,screen,'sessionclose')
+                    incrementAndUpdate(displayMap,screen,'sessionclose')
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
                     logfile.write(xmlStanza + "\n")
-                    freqMap['IncompleteStanza'] += 1
-                    updateFrequency(displayMap, screen, 'IncompleteStanza')
+                    incrementAndUpdate(displayMap, screen, 'IncompleteStanza')
     posfile.write(str(fileposition))
     posfile.close()
 
