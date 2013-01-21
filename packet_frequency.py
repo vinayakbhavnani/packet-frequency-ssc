@@ -17,7 +17,7 @@ def tuiMap(stanzaMap):
     x3 = 40
     x4 = 70
     x5 = 80
-    y = 2
+    y = 3
     for key in stanzaMap:
         coordinateMap = {}
         coordinateMap['packet'] = (x1,y)
@@ -36,6 +36,8 @@ def printKeys(displayMap, win):
         keypos = displayMap[key]['packet']
         #print keypos[1],keypos[0],key
         win.addstr(keypos[1], keypos[0], key)
+        win.addstr(1,30,'Cloud->SSC->Device')
+        win.addstr(1,70,'Device->SSC->Cloud')
         win.refresh()
     win.addstr(20,2,'Press q to quit')
     win.refresh()
