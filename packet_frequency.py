@@ -58,13 +58,15 @@ def parseXml(packet):
             except xml.parsers.expat.ExpatError:
                 if packet == "</stream:stream>":
                     return "streamclose",None
+                elif packet == "</session>":
+                    iqfile.write(packet)
+                    return "sessionclose",None
                 else:
                     if packet.find("stream:stream") == 1:
                         rawpacket = packet + "</stream:stream>"
                     else:
                         rawpacket = packet
                     binderror = rawpacket.replace(":","")
-                    iqfile.write(binderror)
                     try:
                         doc = xml.dom.minidom.parseString(binderror)
                         root = doc.documentElement
@@ -76,7 +78,6 @@ def parseXml(packet):
 def handleStreamStart(packet):
     if packet.find('stream:stream') == 1:
         streamStart = packet+"</stream:stream>"
-        iqfile.write(streamStart+"\n")
         return streamStart
     elif packet.find('<session') ==0:
         session = packet + "</session>"
@@ -176,6 +177,7 @@ def initMap():
     loadmap['IqwithoutchildTypeResult'] = 0
     loadmap['nopacket'] = 0
     loadmap['streamclose'] = 0
+    loadmap['sessionclose'] = 0
     return loadmap
 
 
@@ -220,6 +222,9 @@ def parseAndUpdate():
                 elif responseType == "streamclose":
                     freqMap['streamclose'] +=1
                     updateFrequency(displayMap,screen,'streamclose')
+                elif responseType == "sessionclose":
+                    freqMap['sessionclose'] += 1
+                    updateFrequency(displayMap,screen,'sessionclose')
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
