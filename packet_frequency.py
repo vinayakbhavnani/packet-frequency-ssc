@@ -8,6 +8,7 @@ import curses
 import thread
 import threading
 import argparse
+import os
 
 def tuiMap(stanzaMap):
     tuimap = {}
@@ -181,7 +182,7 @@ def initMap():
 def fetchInputAndValidate():
     parse = argparse.ArgumentParser(prog='input.py')
     parse.add_argument('executablefile')
-    parse.add_argument('logfile',dest='inputfile')
+    parse.add_argument('logfile')
     parse.add_argument('-r',type=float,default=1.0,help='refresh Rate',dest='refreshRate')
     parse.add_argument('-o',default=False,help='true for resume , false for restart',dest='resume',action='store_const',const=True)
     namespace = parse.parse_args(sys.argv)
@@ -189,7 +190,6 @@ def fetchInputAndValidate():
 
 def parseAndUpdate():
     global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition
-    fileposition = getFilePosition(resume)
     inputfile.seek(fileposition)
     while quitFlag:
         fileposition = inputfile.tell()
@@ -227,6 +227,7 @@ def parseAndUpdate():
                     freqMap['IncompleteStanza'] += 1
                     updateFrequency(displayMap, screen, 'IncompleteStanza')
     posfile.write(str(fileposition))
+    posfile.close()
 
 
 def receiveUserInput():
@@ -249,14 +250,19 @@ def getFilePosition(resumption):
     else:
         return 0
 inp = fetchInputAndValidate()
-inpfile = inp['inputfile']
-refreshRate = inp['refreshRate']
-resume = inp['resume']
+inpfile = inp.logfile
+refreshRate = inp.refreshRate
+resume = inp.resume
 #inputfile = open("serverRecd",'r')
 inputfile = open(inpfile, 'r')
 logfile = open("invalidXmlLog", 'w')
 iqfile = open("undetectedIQ", 'w')
-posfile = open("pos",'r+')
+try:
+    posfile = open("pos",'r')
+    fileposition = getFilePosition(resume)
+except IOError :
+    fileposition = 0
+posfile = open("pos",'w')
 freqMap = initMap()
 response1 = tuiMap(freqMap)
 displayMap = response1[0]
