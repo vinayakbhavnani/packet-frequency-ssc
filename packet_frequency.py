@@ -13,10 +13,19 @@ import os
 def tuiMap(stanzaMap):
     tuimap = {}
     x1 = 1
-    x2 = 30
+    x2 = 20
+    x3 = 30
+    x4 = 40
+    x5 = 50
     y = 2
     for key in stanzaMap:
-        tuimap[key] = [(x1, y), (x2, y)]
+        coordinateMap = {}
+        coordinateMap['packet'] = (x1,y)
+        coordinateMap['cin'] = (x2,y)
+        coordinateMap['cout'] = (x3,y)
+        coordinateMap['din'] = (x4,y)
+        coordinateMap['dout'] = (x5,y)
+        tuimap[key] = coordinateMap
         y = y + 1
 
     return tuimap, y
