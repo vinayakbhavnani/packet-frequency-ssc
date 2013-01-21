@@ -181,7 +181,7 @@ def initMap():
 def fetchInputAndValidate():
     parse = argparse.ArgumentParser(prog='input.py')
     parse.add_argument('executablefile')
-    parse.add_argument('logfile')
+    parse.add_argument('logfile',dest='inputfile')
     parse.add_argument('-r',type=float,default=1.0,help='refresh Rate',dest='refreshRate')
     parse.add_argument('-o',default=False,help='true for resume , false for restart',dest='resume',action='store_const',const=True)
     namespace = parse.parse_args(sys.argv)
@@ -189,7 +189,7 @@ def fetchInputAndValidate():
 
 def parseAndUpdate():
     global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , fileposition
-    fileposition = readFilePosition()
+    fileposition = getFilePosition(resume)
     inputfile.seek(fileposition)
     while quitFlag:
         fileposition = inputfile.tell()
@@ -228,12 +228,6 @@ def parseAndUpdate():
                     updateFrequency(displayMap, screen, 'IncompleteStanza')
     posfile.write(str(fileposition))
 
-def readFilePosition():
-    line = posfile.readline()
-    if not line:
-        return 0
-    else:
-        return int(line)
 
 def receiveUserInput():
     global quitFlag
@@ -245,9 +239,19 @@ def receiveUserInput():
             curses.endwin()
             break
 
+def getFilePosition(resumption):
+    if resumption == True :
+        line = posfile.readline()
+        if not line:
+            return 0
+        else:
+            return int(line)
+    else:
+        return 0
 inp = fetchInputAndValidate()
-inpfile = inp[0]
-refreshRate = inp[1]
+inpfile = inp['inputfile']
+refreshRate = inp['refreshRate']
+resume = inp['resume']
 #inputfile = open("serverRecd",'r')
 inputfile = open(inpfile, 'r')
 logfile = open("invalidXmlLog", 'w')
