@@ -256,9 +256,6 @@ curses.noecho()
 screen.border(0)
 #screen.addstr(10,20,"hey")
 printKeys(displayMap, screen)
-incoming = '<<'
-outgoing = '>>'
-streamclose = "RECD: "
 totalLine = 0
 quitFlag = 1
 userThread = threading.Thread(target=receiveUserInput)
