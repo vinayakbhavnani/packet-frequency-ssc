@@ -107,15 +107,15 @@ def processPacket(root):
         incrementAndUpdate(displayMap, screen, 'stream',srcdest)
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
-        if root.getElementsByTagName('composing') or root.getElementsByTagName('active'):
+        if root.getElementsByTagName('body'):
+            incrementAndUpdate(displayMap, screen, 'chat',srcdest)
+        elif root.getElementsByTagName('composing') or root.getElementsByTagName('active') or root.getElementsByTagName('inactive') or root.getElementsByTagName('paused'):
             #print "chatState"
             incrementAndUpdate(displayMap, screen, 'chatstates',srcdest)
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
             incrementAndUpdate(displayMap, screen, 'readreceipts',srcdest)
-        else:
-            #print "chatMessage"
-            incrementAndUpdate(displayMap, screen, 'chat',srcdest)
+
     elif root.nodeName == "presence":
         #print "presence packet"
         incrementAndUpdate(displayMap,screen,'presence',srcdest)
