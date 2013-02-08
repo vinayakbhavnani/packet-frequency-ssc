@@ -1,34 +1,46 @@
 __author__ = 'vinayak'
 
-import re
 import time
 import xml.dom.minidom
 import sys
 import curses
-import thread
 import threading
 import argparse
-import os
+from collections import namedtuple
 
-def tuiMap(stanzaMap):
-    tuimap = {}
-    x1 = 1
-    x2 = 30
-    x3 = 40
-    x4 = 70
-    x5 = 80
+Point = namedtuple("Point", "x y")
+
+
+class PacketCounter:
+    def __init__(self, name):
+        self._name = name
+        self._cloud_in_freq = 0
+        self._cloud_out_freq = 0
+        self._device_in_freq = 0
+        self._device_out_freq = 0
+
+    @property
+    def name(self):
+        return self._name.toUpper()
+
+
+def terminal_ui(stanza_map):
+    """
+    Takes a map with key 'stanza name' and value is a list of 5 values
+    """
+    stanza_coords = {}
     y = 3
-    for key in stanzaMap:
+    for key in stanza_map:
         coordinateMap = {}
-        coordinateMap['packet'] = (x1,y)
-        coordinateMap['cout'] = (x2,y)
-        coordinateMap['din'] = (x3,y)
-        coordinateMap['dout'] = (x4,y)
-        coordinateMap['cin'] = (x5,y)
-        tuimap[key] = coordinateMap
-        y = y + 1
+        coordinateMap['packet'] = Point(1, y)
+        coordinateMap['cout'] = Point(30, y)
+        coordinateMap['din'] = Point(40, y)
+        coordinateMap['dout'] = Point(70, y)
+        coordinateMap['cin'] = Point(80, y)
+        stanza_coords[key] = coordinateMap
+        y += 1
 
-    return tuimap, y
+    return stanza_coords, y
 
 
 def printKeys(displayMap, win):
@@ -71,7 +83,7 @@ def parseXml(packet):
                 if packet == "</stream:stream>":
                     return "streamclose",None
                 elif packet == "</session>":
-                    iqfile.write(packet)
+                    undetected_iq_file.write(packet)
                     return "sessionclose",None
                 else:
                     if packet.find("stream:stream") == 1:
@@ -155,20 +167,15 @@ def processPacket(root):
         incrementAndUpdate(displayMap,screen,'session',srcdest)
 
 
-def initMap():
-    loadmap = {}
+def setup_packet_entries():
+    result = {}
     stanzaList = ['sessionclose','streamclose','nopacket','IqwithoutchildTypeResult','session','bind','roster','IncompleteStanza','iq','stream','googlesharedstatus','readreceipts','chat','chatstates','presence','vcard','reflection']
-    for key in stanzaList:
-        tempMap = {}
-        tempMap['cin'] = 0
-        tempMap['cout'] = 0
-        tempMap['din'] = 0
-        tempMap['dout'] = 0
-        loadmap[key] = tempMap
-    return loadmap
+    for each in stanzaList:
+        result[each] = PacketCounter(each)
+    return result
 
 
-def fetchInputAndValidate():
+def parse_args():
     parse = argparse.ArgumentParser(prog='input.py')
     parse.add_argument('executablefile')
     parse.add_argument('logfile')
@@ -195,11 +202,11 @@ def extractPacketAndSrcDest(logstring):
 def parseAndUpdate():
     global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , resume , srcdest
     if resume == True:
-        inputfile.seek(0,2)
+        input_file.seek(0,2)
     while quitFlag:
-        line = inputfile.readline()
+        line = input_file.readline()
         if not line:
-            time.sleep(float(refreshRate))
+            time.sleep(float(refresh_rate))
             continue
         else:
             packetinfo = extractPacketAndSrcDest(line)
@@ -225,7 +232,7 @@ def parseAndUpdate():
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
-                    logfile.write(xmlStanza + "\n")
+                    invalid_xml_logs.write(xmlStanza + "\n")
                     incrementAndUpdate(displayMap, screen, 'IncompleteStanza',srcdest)
 
 
@@ -239,22 +246,23 @@ def receiveUserInput():
             curses.endwin()
             break
 
-inp = fetchInputAndValidate()
-inpfile = inp.logfile
-refreshRate = inp.refreshRate
-resume = inp.resume
-#inputfile = open("serverRecd",'r')
-inputfile = open(inpfile, 'r')
-logfile = open("invalidXmlLog", 'w')
-iqfile = open("undetectedIQ", 'w')
-posfile = open("pos",'w')
-freqMap = initMap()
-response1 = tuiMap(freqMap)
+
+
+
+args = parse_args()
+refresh_rate = args.refreshRate
+resume = args.resume
+
+input_file = open(args.logfile, 'r')
+invalid_xml_logs = open("invalidXmlLog", 'w')
+undetected_iq_file = open("undetectedIQ", 'w')
+
+freqMap = setup_packet_entries()
+response1 = terminal_ui(freqMap)
 displayMap = response1[0]
 screen = curses.initscr()
 curses.noecho()
 screen.border(0)
-#screen.addstr(10,20,"hey")
 printKeys(displayMap, screen)
 totalLine = 0
 quitFlag = 1
@@ -265,5 +273,3 @@ backThread.start()
 
 userThread.join()
 backThread.join()
-
-
