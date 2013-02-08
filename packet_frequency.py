@@ -55,7 +55,7 @@ def printKeys(displayMap, win):
     win.refresh()
 
 
-def incrementAndUpdate(displayMap, screen, key , sd):
+def incrementAndUpdate(freqMap,displayMap, screen, key , sd):
     freqMap[key][sd] += 1
     screen.addstr(displayMap[key][sd][1], displayMap[key][sd][0], str(freqMap[key][sd]))
     screen.refresh()
@@ -83,7 +83,7 @@ def parseXml(packet):
                 if packet == "</stream:stream>":
                     return "streamclose",None
                 elif packet == "</session>":
-                    undetected_iq_file.write(packet)
+                    #undetected_iq_file.write(packet)
                     return "sessionclose",None
                 else:
                     if packet.find("stream:stream") == 1:
@@ -113,58 +113,59 @@ def processPacketList(packetList):
         processPacket(packet)
 
 
-def processPacket(root):
+
+def processPacket(root,displayMap,screen,freqMap):
     #print root
     if root.nodeName.find('stream') == 0:
-        incrementAndUpdate(displayMap, screen, 'stream',srcdest)
+        incrementAndUpdate(freqMap,displayMap, screen, 'stream',srcdest)
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
         if root.getElementsByTagName('body'):
-            incrementAndUpdate(displayMap, screen, 'chat',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'chat',srcdest)
         elif root.getElementsByTagName('composing') or root.getElementsByTagName('active') or root.getElementsByTagName('inactive') or root.getElementsByTagName('paused'):
             #print "chatState"
-            incrementAndUpdate(displayMap, screen, 'chatstates',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'chatstates',srcdest)
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
-            incrementAndUpdate(displayMap, screen, 'readreceipts',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'readreceipts',srcdest)
 
     elif root.nodeName == "presence":
         #print "presence packet"
-        incrementAndUpdate(displayMap,screen,'presence',srcdest)
+        incrementAndUpdate(freqMap,displayMap,screen,'presence',srcdest)
 
     elif root.nodeName == "iq":
         #print root.childNodes[0].attributes.items()
         if root.childNodes == []:
-            incrementAndUpdate(displayMap, screen, 'IqwithoutchildTypeResult',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'IqwithoutchildTypeResult',srcdest)
         elif root.getElementsByTagName('query'):
             queryelem = root.getElementsByTagName('query')[0]
             queryxmlns = queryelem.getAttributeNode('xmlns').nodeValue
             if queryxmlns == "http://talk.to/extension#reflection":
                 #print "reflection"
-                incrementAndUpdate(displayMap, screen, 'reflection',srcdest)
+                incrementAndUpdate(freqMap,displayMap, screen, 'reflection',srcdest)
             elif queryxmlns == "google:shared-status":
                 #print "google shared status"
-                incrementAndUpdate(displayMap, screen, 'googlesharedstatus',srcdest)
+                incrementAndUpdate(freqMap,displayMap, screen, 'googlesharedstatus',srcdest)
             elif queryxmlns == "jabber:iq:roster":
-                incrementAndUpdate(displayMap, screen, 'roster',srcdest)
+                incrementAndUpdate(freqMap,displayMap, screen, 'roster',srcdest)
             else:
                 #print "IQwithQuery undetected"
-                incrementAndUpdate(displayMap, screen, 'iq',srcdest)
+                incrementAndUpdate(freqMap,displayMap, screen, 'iq',srcdest)
                 #print m.group(1)
                 #iqfile.write(m.group(1)+"\n")
         elif root.getElementsByTagName('vCard'):
-            incrementAndUpdate(displayMap, screen, 'vcard',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'vcard',srcdest)
         elif root.getElementsByTagName('bind'):
-            incrementAndUpdate(displayMap, screen, 'bind',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'bind',srcdest)
         elif root.getElementsByTagName('session'):
-            incrementAndUpdate(displayMap, screen, 'session',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'session',srcdest)
         else:
             #print "IQ undected"
-            incrementAndUpdate(displayMap, screen, 'iq',srcdest)
+            incrementAndUpdate(freqMap,displayMap, screen, 'iq',srcdest)
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
     elif root.nodeName == "session":
-        incrementAndUpdate(displayMap,screen,'session',srcdest)
+        incrementAndUpdate(freqMap,displayMap,screen,'session',srcdest)
 
 
 def setup_packet_entries():
@@ -199,7 +200,7 @@ def extractPacketAndSrcDest(logstring):
     return None,None
 
 
-def parseAndUpdate():
+def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
     global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , resume , srcdest
     if resume == True:
         input_file.seek(0,2)
@@ -226,17 +227,17 @@ def parseAndUpdate():
                 elif responseType == "elementlist":
                     processPacketList(responseElem)
                 elif responseType == "streamclose":
-                    incrementAndUpdate(displayMap,screen,'streamclose',srcdest)
+                    incrementAndUpdate(freqMap,displayMap,screen,'streamclose',srcdest)
                 elif responseType == "sessionclose":
-                    incrementAndUpdate(displayMap,screen,'sessionclose',srcdest)
+                    incrementAndUpdate(freqMap,displayMap,screen,'sessionclose',srcdest)
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
                     invalid_xml_logs.write(xmlStanza + "\n")
-                    incrementAndUpdate(displayMap, screen, 'IncompleteStanza',srcdest)
+                    incrementAndUpdate(freqMap,displayMap, screen, 'IncompleteStanza',srcdest)
 
 
-def receiveUserInput():
+def receiveUserInput(screen):
     global quitFlag
     while 1:
         user_input = screen.getch()
@@ -248,28 +249,28 @@ def receiveUserInput():
 
 
 
+def main():
+    global quitFlag,invalid_xml_logs
+    args = parse_args()
+    refresh_rate = args.refreshRate
+    resume = args.resume
 
-args = parse_args()
-refresh_rate = args.refreshRate
-resume = args.resume
+    input_file = open(args.logfile, 'r')
+    invalid_xml_logs = open("invalidXmlLog", 'w')
+    undetected_iq_file = open("undetectedIQ", 'w')
 
-input_file = open(args.logfile, 'r')
-invalid_xml_logs = open("invalidXmlLog", 'w')
-undetected_iq_file = open("undetectedIQ", 'w')
+    freqMap = setup_packet_entries()
+    response1 = terminal_ui(freqMap)
+    displayMap = response1[0]
+    screen = curses.initscr()
+    curses.noecho()
+    screen.border(0)
+    printKeys(displayMap, screen)
+    quitFlag = 1
+    userThread = threading.Thread(target=receiveUserInput,screen)
+    userThread.start()
+    backThread = threading.Thread(target=parseAndUpdate,refresh_rate)
+    backThread.start()
 
-freqMap = setup_packet_entries()
-response1 = terminal_ui(freqMap)
-displayMap = response1[0]
-screen = curses.initscr()
-curses.noecho()
-screen.border(0)
-printKeys(displayMap, screen)
-totalLine = 0
-quitFlag = 1
-userThread = threading.Thread(target=receiveUserInput)
-userThread.start()
-backThread = threading.Thread(target=parseAndUpdate)
-backThread.start()
-
-userThread.join()
-backThread.join()
+    userThread.join()
+    backThread.join()
