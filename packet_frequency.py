@@ -108,9 +108,9 @@ def handleStreamStart(packet):
         return session
     else:
         return packet
-def processPacketList(packetList):
+def processPacketList(packetList,displayMap,screen,freqMap):
     for packet in packetList:
-        processPacket(packet)
+        processPacket(packet,displayMap,screen,freqMap)
 
 
 
@@ -201,7 +201,7 @@ def extractPacketAndSrcDest(logstring):
 
 
 def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
-    global line, m, xmlStanza, totalLine, response, responseType, responseElem , quitFlag , resume , srcdest
+    global srcdest
     if resume == True:
         input_file.seek(0,2)
     while quitFlag:
@@ -217,15 +217,14 @@ def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
                 m = True
                 srcdest = packetinfo[0]
                 xmlStanza = packetinfo[1]
-            totalLine += 1
             if m:
                 response = parseXml(xmlStanza)
                 responseType = response[0]
                 responseElem = response[1]
                 if responseType == "element":
-                    processPacket(responseElem)
+                    processPacket(responseElem,displayMap,screen,freqMap)
                 elif responseType == "elementlist":
-                    processPacketList(responseElem)
+                    processPacketList(responseElem,displayMap,screen,freqMap)
                 elif responseType == "streamclose":
                     incrementAndUpdate(freqMap,displayMap,screen,'streamclose',srcdest)
                 elif responseType == "sessionclose":
@@ -238,7 +237,6 @@ def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
 
 
 def receiveUserInput(screen):
-    global quitFlag
     while 1:
         user_input = screen.getch()
         if str(user_input) == '113':
@@ -250,7 +248,7 @@ def receiveUserInput(screen):
 
 
 def main():
-    global quitFlag,invalid_xml_logs
+    global quitFlag,invalid_xml_logs,resume
     args = parse_args()
     refresh_rate = args.refreshRate
     resume = args.resume
@@ -269,7 +267,7 @@ def main():
     quitFlag = 1
     userThread = threading.Thread(target=receiveUserInput,screen)
     userThread.start()
-    backThread = threading.Thread(target=parseAndUpdate,refresh_rate)
+    backThread = threading.Thread(target=parseAndUpdate,input_file,refresh_rate,displayMap,screen,freqMap)
     backThread.start()
 
     userThread.join()
