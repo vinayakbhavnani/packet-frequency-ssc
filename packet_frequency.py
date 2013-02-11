@@ -24,6 +24,7 @@ class PacketCounter:
         return self._name.toUpper()
 
 
+
 def terminal_ui(stanza_map):
     """
     Takes a map with key 'stanza name' and value is a list of 5 values
@@ -257,8 +258,8 @@ def main():
     invalid_xml_logs = open("invalidXmlLog", 'w')
     undetected_iq_file = open("undetectedIQ", 'w')
 
-    freqMap = setup_packet_entries()
-    response1 = terminal_ui(freqMap)
+    packet_entries = setup_packet_entries()
+    response1 = terminal_ui(packet_entries)
     displayMap = response1[0]
     screen = curses.initscr()
     curses.noecho()
@@ -267,8 +268,12 @@ def main():
     quitFlag = 1
     userThread = threading.Thread(target=receiveUserInput,screen)
     userThread.start()
-    backThread = threading.Thread(target=parseAndUpdate,input_file,refresh_rate,displayMap,screen,freqMap)
+    backThread = threading.Thread(target=parseAndUpdate,input_file,refresh_rate,displayMap,screen,packet_entries)
     backThread.start()
 
     userThread.join()
     backThread.join()
+
+
+if __name__ == '__main__':
+    main()
