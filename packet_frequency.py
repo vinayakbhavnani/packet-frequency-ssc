@@ -1,7 +1,7 @@
 __author__ = 'vinayak'
 
 import time
-import xml.dom.minidom
+import xml.dom.minidom #TODO: Change to SAX parser
 import sys
 import curses
 import threading
@@ -9,23 +9,55 @@ import argparse
 from collections import namedtuple
 
 Point = namedtuple("Point", "x y")
+PacketDetail = namedtuple("PacketDetail", "point count")
 
-
-class PacketCounter:
+class PacketCounter: #TODO: PacketManager?
     def __init__(self, name):
         self._name = name
-        self._cloud_in_freq = 0
-        self._cloud_out_freq = 0
-        self._device_in_freq = 0
-        self._device_out_freq = 0
+        self._cloud_in, self._cloud_out, self._device_in, self._device_out = PacketDetail(None, 0)
 
     @property
     def name(self):
         return self._name.toUpper()
 
+    @property
+    def cloud_in(self):
+        return self._cloud_in
+
+    @cloud_in.setter
+    def cloud_in(self, value):
+        self._cloud_in = value
+
+
+    @property
+    def cloud_out(self):
+        return self._cloud_out
+
+    @cloud_out.setter
+    def cloud_out(self, value):
+        self._cloud_out = value
+
+    @property
+    def device_in(self):
+        return self._device_in
+
+    @device_in.setter
+    def device_in(self, value):
+        self._device_in = value
+
+
+    @property
+    def device_out(self):
+        return self._device_out
+
+    @device_out.setter
+    def device_out(self, value):
+        self._device_out = value
+
 
 
 def terminal_ui(stanza_map):
+    #TODO: Accept list not map
     """
     Takes a map with key 'stanza name' and value is a list of 5 values
     """
@@ -170,10 +202,10 @@ def processPacket(root,displayMap,screen,freqMap):
 
 
 def setup_packet_entries():
-    result = {}
+    result = []
     stanzaList = ['sessionclose','streamclose','nopacket','IqwithoutchildTypeResult','session','bind','roster','IncompleteStanza','iq','stream','googlesharedstatus','readreceipts','chat','chatstates','presence','vcard','reflection']
     for each in stanzaList:
-        result[each] = PacketCounter(each)
+        result.append(PacketCounter(each))
     return result
 
 
