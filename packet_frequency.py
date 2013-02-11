@@ -11,14 +11,23 @@ from collections import namedtuple
 Point = namedtuple("Point", "x y")
 PacketDetail = namedtuple("PacketDetail", "point count")
 
-class PacketCounter: #TODO: PacketManager?
+class PacketEntry:
     def __init__(self, name):
         self._name = name
+        self._name_pos = None
         self._cloud_in, self._cloud_out, self._device_in, self._device_out = PacketDetail(None, 0)
 
     @property
     def name(self):
         return self._name.toUpper()
+
+    @property
+    def name_pos(self):
+        return self._name_pos
+
+    @name_pos.setter
+    def name_pos(self, value):
+        self._name_pos = value
 
     @property
     def cloud_in(self):
@@ -55,25 +64,20 @@ class PacketCounter: #TODO: PacketManager?
         self._device_out = value
 
 
-
-def terminal_ui(stanza_map):
+def init_packet_entries(entries):
     #TODO: Accept list not map
     """
     Takes a map with key 'stanza name' and value is a list of 5 values
     """
-    stanza_coords = {}
-    y = 3
-    for key in stanza_map:
-        coordinateMap = {}
-        coordinateMap['packet'] = Point(1, y)
-        coordinateMap['cout'] = Point(30, y)
-        coordinateMap['din'] = Point(40, y)
-        coordinateMap['dout'] = Point(70, y)
-        coordinateMap['cin'] = Point(80, y)
-        stanza_coords[key] = coordinateMap
-        y += 1
-
-    return stanza_coords, y
+    last_y = 0
+    for i in range(len(entries), 0):
+        last_y = last_y
+        entries[i].name_pos = Point(1, last_y)
+        entries[i].cloud_out = Point(30, last_y)
+        entries[i].device_in = Point(40, last_y)
+        entries[i].device_out = Point(70, last_y)
+        entries[i].cloud_in = Point(80, last_y)
+    return last_y
 
 
 def printKeys(displayMap, win):
@@ -81,14 +85,14 @@ def printKeys(displayMap, win):
         keypos = displayMap[key]['packet']
         #print keypos[1],keypos[0],key
         win.addstr(keypos[1], keypos[0], key)
-        win.addstr(1,30,'Cloud->SSC->Device')
-        win.addstr(1,70,'Device->SSC->Cloud')
+        win.addstr(1, 30, 'Cloud->SSC->Device')
+        win.addstr(1, 70, 'Device->SSC->Cloud')
         win.refresh()
-    win.addstr(20,2,'Press q to quit')
+    win.addstr(20, 2, 'Press q to quit')
     win.refresh()
 
 
-def incrementAndUpdate(freqMap,displayMap, screen, key , sd):
+def incrementAndUpdate(freqMap, displayMap, screen, key, sd):
     freqMap[key][sd] += 1
     screen.addstr(displayMap[key][sd][1], displayMap[key][sd][0], str(freqMap[key][sd]))
     screen.refresh()
@@ -114,16 +118,16 @@ def parseXml(packet):
                 return "element", root
             except xml.parsers.expat.ExpatError:
                 if packet == "</stream:stream>":
-                    return "streamclose",None
+                    return "streamclose", None
                 elif packet == "</session>":
                     #undetected_iq_file.write(packet)
-                    return "sessionclose",None
+                    return "sessionclose", None
                 else:
                     if packet.find("stream:stream") == 1:
                         rawpacket = packet + "</stream:stream>"
                     else:
                         rawpacket = packet
-                    binderror = rawpacket.replace(":","")
+                    binderror = rawpacket.replace(":", "")
                     try:
                         doc = xml.dom.minidom.parseString(binderror)
                         root = doc.documentElement
@@ -134,78 +138,82 @@ def parseXml(packet):
 
 def handleStreamStart(packet):
     if packet.find('stream:stream') == 1:
-        streamStart = packet+"</stream:stream>"
+        streamStart = packet + "</stream:stream>"
         return streamStart
-    elif packet.find('<session') ==0:
+    elif packet.find('<session') == 0:
         session = packet + "</session>"
         return session
     else:
         return packet
-def processPacketList(packetList,displayMap,screen,freqMap):
+
+
+def processPacketList(packetList, displayMap, screen, freqMap):
     for packet in packetList:
-        processPacket(packet,displayMap,screen,freqMap)
+        processPacket(packet, displayMap, screen, freqMap)
 
 
-
-def processPacket(root,displayMap,screen,freqMap):
+def processPacket(root, displayMap, screen, freqMap):
     #print root
     if root.nodeName.find('stream') == 0:
-        incrementAndUpdate(freqMap,displayMap, screen, 'stream',srcdest)
+        incrementAndUpdate(freqMap, displayMap, screen, 'stream', srcdest)
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
         if root.getElementsByTagName('body'):
-            incrementAndUpdate(freqMap,displayMap, screen, 'chat',srcdest)
-        elif root.getElementsByTagName('composing') or root.getElementsByTagName('active') or root.getElementsByTagName('inactive') or root.getElementsByTagName('paused'):
+            incrementAndUpdate(freqMap, displayMap, screen, 'chat', srcdest)
+        elif root.getElementsByTagName('composing') or root.getElementsByTagName('active') or root.getElementsByTagName(
+            'inactive') or root.getElementsByTagName('paused'):
             #print "chatState"
-            incrementAndUpdate(freqMap,displayMap, screen, 'chatstates',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'chatstates', srcdest)
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
-            incrementAndUpdate(freqMap,displayMap, screen, 'readreceipts',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'readreceipts', srcdest)
 
     elif root.nodeName == "presence":
         #print "presence packet"
-        incrementAndUpdate(freqMap,displayMap,screen,'presence',srcdest)
+        incrementAndUpdate(freqMap, displayMap, screen, 'presence', srcdest)
 
     elif root.nodeName == "iq":
         #print root.childNodes[0].attributes.items()
         if root.childNodes == []:
-            incrementAndUpdate(freqMap,displayMap, screen, 'IqwithoutchildTypeResult',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'IqwithoutchildTypeResult', srcdest)
         elif root.getElementsByTagName('query'):
             queryelem = root.getElementsByTagName('query')[0]
             queryxmlns = queryelem.getAttributeNode('xmlns').nodeValue
             if queryxmlns == "http://talk.to/extension#reflection":
                 #print "reflection"
-                incrementAndUpdate(freqMap,displayMap, screen, 'reflection',srcdest)
+                incrementAndUpdate(freqMap, displayMap, screen, 'reflection', srcdest)
             elif queryxmlns == "google:shared-status":
                 #print "google shared status"
-                incrementAndUpdate(freqMap,displayMap, screen, 'googlesharedstatus',srcdest)
+                incrementAndUpdate(freqMap, displayMap, screen, 'googlesharedstatus', srcdest)
             elif queryxmlns == "jabber:iq:roster":
-                incrementAndUpdate(freqMap,displayMap, screen, 'roster',srcdest)
+                incrementAndUpdate(freqMap, displayMap, screen, 'roster', srcdest)
             else:
                 #print "IQwithQuery undetected"
-                incrementAndUpdate(freqMap,displayMap, screen, 'iq',srcdest)
+                incrementAndUpdate(freqMap, displayMap, screen, 'iq', srcdest)
                 #print m.group(1)
                 #iqfile.write(m.group(1)+"\n")
         elif root.getElementsByTagName('vCard'):
-            incrementAndUpdate(freqMap,displayMap, screen, 'vcard',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'vcard', srcdest)
         elif root.getElementsByTagName('bind'):
-            incrementAndUpdate(freqMap,displayMap, screen, 'bind',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'bind', srcdest)
         elif root.getElementsByTagName('session'):
-            incrementAndUpdate(freqMap,displayMap, screen, 'session',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'session', srcdest)
         else:
             #print "IQ undected"
-            incrementAndUpdate(freqMap,displayMap, screen, 'iq',srcdest)
+            incrementAndUpdate(freqMap, displayMap, screen, 'iq', srcdest)
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
     elif root.nodeName == "session":
-        incrementAndUpdate(freqMap,displayMap,screen,'session',srcdest)
+        incrementAndUpdate(freqMap, displayMap, screen, 'session', srcdest)
 
 
 def setup_packet_entries():
     result = []
-    stanzaList = ['sessionclose','streamclose','nopacket','IqwithoutchildTypeResult','session','bind','roster','IncompleteStanza','iq','stream','googlesharedstatus','readreceipts','chat','chatstates','presence','vcard','reflection']
+    stanzaList = ['sessionclose', 'streamclose', 'nopacket', 'IqwithoutchildTypeResult', 'session', 'bind', 'roster',
+                  'IncompleteStanza', 'iq', 'stream', 'googlesharedstatus', 'readreceipts', 'chat', 'chatstates',
+                  'presence', 'vcard', 'reflection']
     for each in stanzaList:
-        result.append(PacketCounter(each))
+        result.append(PacketEntry(each))
     return result
 
 
@@ -213,10 +221,12 @@ def parse_args():
     parse = argparse.ArgumentParser(prog='input.py')
     parse.add_argument('executablefile')
     parse.add_argument('logfile')
-    parse.add_argument('-r',type=float,default=1.0,help='refresh Rate',dest='refreshRate')
-    parse.add_argument('-o',default=False,help='true for resume , false for restart',dest='resume',action='store_const',const=True)
+    parse.add_argument('-r', type=float, default=1.0, help='refresh Rate', dest='refreshRate')
+    parse.add_argument('-o', default=False, help='true for resume , false for restart', dest='resume',
+        action='store_const', const=True)
     namespace = parse.parse_args(sys.argv)
     return namespace
+
 
 def extractPacketAndSrcDest(logstring):
     combinationMap = {}
@@ -229,14 +239,14 @@ def extractPacketAndSrcDest(logstring):
         if value in logstring:
             packet = logstring.split(value)[1]
             packet = packet.strip()
-            return key,packet
-    return None,None
+            return key, packet
+    return None, None
 
 
-def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
+def parseAndUpdate(input_file, refresh_rate, displayMap, screen, freqMap):
     global srcdest
     if resume == True:
-        input_file.seek(0,2)
+        input_file.seek(0, 2)
     while quitFlag:
         line = input_file.readline()
         if not line:
@@ -255,18 +265,18 @@ def parseAndUpdate(input_file,refresh_rate,displayMap,screen,freqMap):
                 responseType = response[0]
                 responseElem = response[1]
                 if responseType == "element":
-                    processPacket(responseElem,displayMap,screen,freqMap)
+                    processPacket(responseElem, displayMap, screen, freqMap)
                 elif responseType == "elementlist":
-                    processPacketList(responseElem,displayMap,screen,freqMap)
+                    processPacketList(responseElem, displayMap, screen, freqMap)
                 elif responseType == "streamclose":
-                    incrementAndUpdate(freqMap,displayMap,screen,'streamclose',srcdest)
+                    incrementAndUpdate(freqMap, displayMap, screen, 'streamclose', srcdest)
                 elif responseType == "sessionclose":
-                    incrementAndUpdate(freqMap,displayMap,screen,'sessionclose',srcdest)
+                    incrementAndUpdate(freqMap, displayMap, screen, 'sessionclose', srcdest)
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
                     invalid_xml_logs.write(xmlStanza + "\n")
-                    incrementAndUpdate(freqMap,displayMap, screen, 'IncompleteStanza',srcdest)
+                    incrementAndUpdate(freqMap, displayMap, screen, 'IncompleteStanza', srcdest)
 
 
 def receiveUserInput(screen):
@@ -281,7 +291,7 @@ def receiveUserInput(screen):
 
 
 def main():
-    global quitFlag,invalid_xml_logs,resume
+    global quitFlag, invalid_xml_logs, resume
     args = parse_args()
     refresh_rate = args.refreshRate
     resume = args.resume
@@ -291,16 +301,15 @@ def main():
     undetected_iq_file = open("undetectedIQ", 'w')
 
     packet_entries = setup_packet_entries()
-    response1 = terminal_ui(packet_entries)
-    displayMap = response1[0]
+    last_y_pos = init_packet_entries(packet_entries)
     screen = curses.initscr()
     curses.noecho()
     screen.border(0)
     printKeys(displayMap, screen)
     quitFlag = 1
-    userThread = threading.Thread(target=receiveUserInput,screen)
+    userThread = threading.Thread(target=receiveUserInput, screen)
     userThread.start()
-    backThread = threading.Thread(target=parseAndUpdate,input_file,refresh_rate,displayMap,screen,packet_entries)
+    backThread = threading.Thread(target=parseAndUpdate, input_file, refresh_rate, displayMap, screen, packet_entries)
     backThread.start()
 
     userThread.join()
