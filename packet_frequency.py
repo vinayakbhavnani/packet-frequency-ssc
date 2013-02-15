@@ -15,11 +15,14 @@ class PacketEntry:
     def __init__(self, name):
         self._name = name
         self._name_pos = None
-        self._cloud_in, self._cloud_out, self._device_in, self._device_out = PacketDetail(None, 0)
+        self._cloud_in = PacketDetail(None, 0)
+        self._cloud_out = PacketDetail(None, 0)
+        self._device_in = PacketDetail(None, 0)
+        self._device_out = PacketDetail(None, 0)
 
     @property
     def name(self):
-        return self._name.toUpper()
+        return self._name
 
     @property
     def name_pos(self):
@@ -63,6 +66,55 @@ class PacketEntry:
     def device_out(self, value):
         self._device_out = value
 
+    def increment_count(self, key, increment):
+        if(key == 'cin'):
+            point  = self.cloud_in.point
+            count = self.cloud_in.count
+            value = count + increment
+            self.cloud_in = PacketDetail(point, value)
+            return self.cloud_in
+        if(key == 'cout'):
+            point = self.cloud_out.point
+            count = self.cloud_out.count
+            value = count + increment
+            self.cloud_out = PacketDetail(point, value)
+            return self.cloud_out
+        if(key == 'din'):
+            point = self.device_in.point
+            count = self.device_in.count
+            value = count + increment
+            self.device_in = PacketDetail(point, value)
+            return self.device_in
+        if(key == 'dout'):
+            point = self.device_out.point
+            count = self.device_out.count
+            value = count + increment
+            self.device_out = PacketDetail(point, value)
+            return self.device_out
+
+
+class Config:
+    def __init__(self, refresh_rate, resume):
+        self._refresh_rate = refresh_rate
+        self._resume = resume
+        self._quit_flag = False
+
+    @property
+    def refresh_rate(self):
+        return self._refresh_rate
+
+    @property
+    def resume(self):
+        return self._resume
+
+    @property
+    def should_run(self):
+        return not(self._quit_flag)
+
+
+    def quit_app(self):
+        self._quit_flag = True
+
 
 def init_packet_entries(entries):
     #TODO: Accept list not map
@@ -70,21 +122,20 @@ def init_packet_entries(entries):
     Takes a map with key 'stanza name' and value is a list of 5 values
     """
     last_y = 0
-    for i in range(len(entries), 0):
-        last_y = last_y
+    for i in range(len(entries)):
+        last_y = i + 3
         entries[i].name_pos = Point(1, last_y)
-        entries[i].cloud_out = Point(30, last_y)
-        entries[i].device_in = Point(40, last_y)
-        entries[i].device_out = Point(70, last_y)
-        entries[i].cloud_in = Point(80, last_y)
+        entries[i].cloud_out = PacketDetail(Point(30, last_y), 0)
+        entries[i].device_in = PacketDetail(Point(40, last_y), 0)
+        entries[i].device_out = PacketDetail(Point(70, last_y), 0)
+        entries[i].cloud_in = PacketDetail(Point(80, last_y), 0)
     return last_y
 
 
-def printKeys(displayMap, win):
-    for key in displayMap:
-        keypos = displayMap[key]['packet']
-        #print keypos[1],keypos[0],key
-        win.addstr(keypos[1], keypos[0], key)
+def printKeys(entries, win):
+    for entry in entries:
+        keypos = entry.name_pos
+        win.addstr(keypos.y, keypos.x, entry.name)
         win.addstr(1, 30, 'Cloud->SSC->Device')
         win.addstr(1, 70, 'Device->SSC->Cloud')
         win.refresh()
@@ -92,10 +143,17 @@ def printKeys(displayMap, win):
     win.refresh()
 
 
-def incrementAndUpdate(freqMap, displayMap, screen, key, sd):
-    freqMap[key][sd] += 1
-    screen.addstr(displayMap[key][sd][1], displayMap[key][sd][0], str(freqMap[key][sd]))
+def incrementAndUpdate(entries, key, sd, screen):
+    entry = get_entry(entries, key)
+    detail = entry.increment_count(sd, 1)
+    screen.addstr(detail.point.y, detail.point.x, str(detail.count))
     screen.refresh()
+
+
+def get_entry(entries, key):
+    for each in entries:
+        if (each.name == key):
+            return each
 
 
 def parseXml(packet):
@@ -147,64 +205,64 @@ def handleStreamStart(packet):
         return packet
 
 
-def processPacketList(packetList, displayMap, screen, freqMap):
+def processPacketList(packetList, entries, screen):
     for packet in packetList:
-        processPacket(packet, displayMap, screen, freqMap)
+        processPacket(packet, entries, screen)
 
 
-def processPacket(root, displayMap, screen, freqMap):
+def processPacket(root, entries, screen):
     #print root
     if root.nodeName.find('stream') == 0:
-        incrementAndUpdate(freqMap, displayMap, screen, 'stream', srcdest)
+        incrementAndUpdate(entries, 'stream', srcdest , screen)
     elif root.nodeName == "message":
         #print root.getElementsByTagName('composing')
         if root.getElementsByTagName('body'):
-            incrementAndUpdate(freqMap, displayMap, screen, 'chat', srcdest)
+            incrementAndUpdate(entries, 'chat', srcdest, screen)
         elif root.getElementsByTagName('composing') or root.getElementsByTagName('active') or root.getElementsByTagName(
             'inactive') or root.getElementsByTagName('paused'):
             #print "chatState"
-            incrementAndUpdate(freqMap, displayMap, screen, 'chatstates', srcdest)
+            incrementAndUpdate(entries,  'chatstates', srcdest, screen)
         elif root.getElementsByTagName('read') or root.getElementsByTagName('received'):
             #print "receipts"
-            incrementAndUpdate(freqMap, displayMap, screen, 'readreceipts', srcdest)
+            incrementAndUpdate(entries, 'readreceipts', srcdest, screen)
 
     elif root.nodeName == "presence":
         #print "presence packet"
-        incrementAndUpdate(freqMap, displayMap, screen, 'presence', srcdest)
+        incrementAndUpdate(entries, 'presence', srcdest, screen)
 
     elif root.nodeName == "iq":
         #print root.childNodes[0].attributes.items()
         if root.childNodes == []:
-            incrementAndUpdate(freqMap, displayMap, screen, 'IqwithoutchildTypeResult', srcdest)
+            incrementAndUpdate(entries, 'IqwithoutchildTypeResult', srcdest, screen)
         elif root.getElementsByTagName('query'):
             queryelem = root.getElementsByTagName('query')[0]
             queryxmlns = queryelem.getAttributeNode('xmlns').nodeValue
             if queryxmlns == "http://talk.to/extension#reflection":
                 #print "reflection"
-                incrementAndUpdate(freqMap, displayMap, screen, 'reflection', srcdest)
+                incrementAndUpdate(entries, 'reflection', srcdest, screen)
             elif queryxmlns == "google:shared-status":
                 #print "google shared status"
-                incrementAndUpdate(freqMap, displayMap, screen, 'googlesharedstatus', srcdest)
+                incrementAndUpdate(entries, 'googlesharedstatus', srcdest, screen)
             elif queryxmlns == "jabber:iq:roster":
-                incrementAndUpdate(freqMap, displayMap, screen, 'roster', srcdest)
+                incrementAndUpdate(entries, 'roster', srcdest,screen)
             else:
                 #print "IQwithQuery undetected"
-                incrementAndUpdate(freqMap, displayMap, screen, 'iq', srcdest)
+                incrementAndUpdate(entries,'iq', srcdest, screen)
                 #print m.group(1)
                 #iqfile.write(m.group(1)+"\n")
         elif root.getElementsByTagName('vCard'):
-            incrementAndUpdate(freqMap, displayMap, screen, 'vcard', srcdest)
+            incrementAndUpdate(entries, 'vcard', srcdest, screen)
         elif root.getElementsByTagName('bind'):
-            incrementAndUpdate(freqMap, displayMap, screen, 'bind', srcdest)
+            incrementAndUpdate(entries, 'bind', srcdest, screen)
         elif root.getElementsByTagName('session'):
-            incrementAndUpdate(freqMap, displayMap, screen, 'session', srcdest)
+            incrementAndUpdate(entries, 'session', srcdest, screen)
         else:
             #print "IQ undected"
-            incrementAndUpdate(freqMap, displayMap, screen, 'iq', srcdest)
+            incrementAndUpdate(entries, 'iq', srcdest, screen)
             #print m.group(1)
             #iqfile.write(m.group(1)+"\n")
     elif root.nodeName == "session":
-        incrementAndUpdate(freqMap, displayMap, screen, 'session', srcdest)
+        incrementAndUpdate(entries, 'session', srcdest, screen)
 
 
 def setup_packet_entries():
@@ -243,11 +301,11 @@ def extractPacketAndSrcDest(logstring):
     return None, None
 
 
-def parseAndUpdate(input_file, refresh_rate, displayMap, screen, freqMap):
+def parseAndUpdate(input_file, refresh_rate, entries, screen, config):
     global srcdest
     if resume == True:
         input_file.seek(0, 2)
-    while quitFlag:
+    while config.should_run:
         line = input_file.readline()
         if not line:
             time.sleep(float(refresh_rate))
@@ -265,29 +323,28 @@ def parseAndUpdate(input_file, refresh_rate, displayMap, screen, freqMap):
                 responseType = response[0]
                 responseElem = response[1]
                 if responseType == "element":
-                    processPacket(responseElem, displayMap, screen, freqMap)
+                    processPacket(responseElem, entries, screen)
                 elif responseType == "elementlist":
-                    processPacketList(responseElem, displayMap, screen, freqMap)
+                    processPacketList(responseElem, entries, screen)
                 elif responseType == "streamclose":
-                    incrementAndUpdate(freqMap, displayMap, screen, 'streamclose', srcdest)
+                    incrementAndUpdate(entries, 'streamclose', srcdest , screen)
                 elif responseType == "sessionclose":
-                    incrementAndUpdate(freqMap, displayMap, screen, 'sessionclose', srcdest)
+                    incrementAndUpdate(entries, 'sessionclose', srcdest , screen)
                 else:
                     #print "Invalid XML"
                     #print m.group(1)
                     invalid_xml_logs.write(xmlStanza + "\n")
-                    incrementAndUpdate(freqMap, displayMap, screen, 'IncompleteStanza', srcdest)
+                    incrementAndUpdate(entries, 'IncompleteStanza', srcdest , screen)
 
 
-def receiveUserInput(screen):
+def receiveUserInput(screen, config):
     while 1:
         user_input = screen.getch()
         if str(user_input) == '113':
-            quitFlag = 0
+            config.quit_app()
             curses.echo()
             curses.endwin()
             break
-
 
 
 def main():
@@ -295,7 +352,7 @@ def main():
     args = parse_args()
     refresh_rate = args.refreshRate
     resume = args.resume
-
+    config = Config(refresh_rate, resume)
     input_file = open(args.logfile, 'r')
     invalid_xml_logs = open("invalidXmlLog", 'w')
     undetected_iq_file = open("undetectedIQ", 'w')
@@ -305,11 +362,11 @@ def main():
     screen = curses.initscr()
     curses.noecho()
     screen.border(0)
-    printKeys(displayMap, screen)
-    quitFlag = 1
-    userThread = threading.Thread(target=receiveUserInput, screen)
+    printKeys(packet_entries, screen)
+    userThread = threading.Thread(group=None, target=receiveUserInput, name='UserInput', args=( screen, config))
     userThread.start()
-    backThread = threading.Thread(target=parseAndUpdate, input_file, refresh_rate, displayMap, screen, packet_entries)
+    backThread = threading.Thread(target=parseAndUpdate,
+        args=(input_file, refresh_rate, packet_entries,screen, config))
     backThread.start()
 
     userThread.join()
